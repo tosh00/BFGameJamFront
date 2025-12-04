@@ -8,6 +8,8 @@ export default class Portal {
   scene: Container;
   elements: Sprite[] = [];
   pointerOver = false;
+  portalSprite!: Sprite;
+  backgroundSprite!: Sprite;
   callbacks = {
     onButtonOver: (event: FederatedPointerEvent) => {},
     onButtonOut: (event: FederatedPointerEvent) => {},
@@ -21,7 +23,7 @@ export default class Portal {
     onButtonDown?: (event: FederatedPointerEvent) => void,
     onButtonUp?: (event: FederatedPointerEvent) => void,
     onButtonOver?: (event: FederatedPointerEvent) => void,
-    onButtonOut?: (event: FederatedPointerEvent) => void,
+    onButtonOut?: (event: FederatedPointerEvent) => void
   ) {
     this.scene = new Container({
       isRenderGroup: true,
@@ -32,6 +34,8 @@ export default class Portal {
     this.callbacks.onButtonOut = onButtonOut || (() => {});
     this.callbacks.onButtonDown = onButtonDown || (() => {});
     this.callbacks.onButtonUp = onButtonUp || (() => {});
+    this.portalSprite = new Sprite(Texture.from(asset('portal_big')));
+    this.backgroundSprite = new Sprite(Texture.from(asset(this.worldId)));
   }
 
   async loadAssets() {
@@ -45,28 +49,32 @@ export default class Portal {
   }
 
   render(app: any) {
-    const button = new Sprite(Texture.from(asset('portal_big')));
+    this.portalSprite.anchor.set(0.5);
+    this.portalSprite.x = this.position.x;
+    this.portalSprite.y = this.position.y;
+    this.portalSprite.scale.set(this.scale);
 
-    button.anchor.set(0.5);
-    button.x = this.position.x;
-    button.y = this.position.y;
-    button.scale.set(this.scale);
+    this.backgroundSprite.anchor.set(0.5);
+    this.backgroundSprite.width = this.portalSprite.width;
+    this.backgroundSprite.height = this.portalSprite.height;
+    this.backgroundSprite.x = this.position.x;
+    this.backgroundSprite.y = this.position.y;
+    this.portalSprite.scale.set(this.scale);
+    console.log(this.backgroundSprite.x, this.backgroundSprite.y);
 
-    const bgAsset = new Sprite(Texture.from(asset(this.worldId)));
-    bgAsset.anchor.set(0.5);
-    bgAsset.width = button.width * this.scale;
-    bgAsset.height = button.height * this.scale;
-    bgAsset.x = button.x;
-    bgAsset.y = button.y;
-    const ellipseWidth = button.width * this.scale - 60;
-    const ellipseHeight = button.height * this.scale;
-    const ellipse = new Graphics().ellipse(button.x, button.y, ellipseWidth / 2, ellipseHeight / 2);
-    bgAsset.mask = ellipse;
+    const ellipseWidth = this.portalSprite.width * this.scale - 60;
+    const ellipseHeight = this.portalSprite.height * this.scale;
+    const ellipse = new Graphics().ellipse(
+      this.portalSprite.x,
+      this.portalSprite.y,
+      ellipseWidth / 2,
+      ellipseHeight / 2
+    );
+    this.backgroundSprite.mask = ellipse;
     ellipse.fill(0xffffff);
 
-    // Make the button interactive...
-    button.eventMode = 'static';
-    button.cursor = 'pointer';
+    this.portalSprite.eventMode = 'static';
+    this.portalSprite.cursor = 'pointer';
 
     this.callbacks.onButtonOver = (event: FederatedPointerEvent) => {
       this.pointerOver = true;
@@ -77,17 +85,16 @@ export default class Portal {
       console.log('out portal');
     };
 
-    button
+    this.portalSprite
+      .on('pointerover', this.callbacks.onButtonOver)
       .on('pointerdown', this.callbacks.onButtonDown)
       .on('pointerup', this.callbacks.onButtonUp)
       .on('pointerupoutside', this.callbacks.onButtonUp)
-      .on('pointerover', this.callbacks.onButtonOver)
       .on('pointerout', this.callbacks.onButtonOut);
 
-
-    this.elements.push(bgAsset, button);
-    this.scene.addChild(bgAsset);
-    this.scene.addChild(button);
+    this.elements.push(this.backgroundSprite, this.portalSprite);
+    this.scene.addChild(this.backgroundSprite);
+    this.scene.addChild(this.portalSprite);
     this.scene.addChild(ellipse);
   }
 
@@ -96,7 +103,6 @@ export default class Portal {
     app.ticker.add(() => {
       if (this.scene) {
         if (this.pointerOver) {
-          tick++;
           this.scene.rotation = 0.05 * Math.sin(tick / 20);
         } else {
           this.scene.rotation = 0;
@@ -104,8 +110,23 @@ export default class Portal {
         }
       }
 
-          this.elements[0].x = 0.05 * Math.sin(tick / 20);
+      // this.elements[0].x = 0.05 * Math.sin(tick / 20);
+      tick++;
+    });
+  }
 
+  getThroughtPortal(app: any) {
+    let tick = 0;
+    const targetHeight = app.screen.height;
+    app.ticker.add(() => {
+
+      if (this.scene) {
+        if(tick < 100) {
+          this.portalSprite.height = targetHeight * (tick / 100);
+        }
+      }
+      // this.elements[0].x = 0.05 * Math.sin(tick / 20);
+      tick++;
     });
   }
 }

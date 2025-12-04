@@ -35,6 +35,14 @@ export default class Character {
     this.character.x = app.screen.width / 2 + 10;
     this.character.y = app.screen.height - backgroundBottomOffset - 80;
     this.character.scale.set(2);
+
+    this.character.eventMode = 'static';
+    this.character.cursor = 'pointer';
+
+    this.character.on('pointerover', () => {
+      console.log('Character over!');
+    });
+
     this.scene.addChild(this.character);
   }
 
