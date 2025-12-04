@@ -1,5 +1,7 @@
 import { Application, Assets, Graphics, Sprite, Texture } from 'pixi.js';
 import { asset, getButtonPositions } from './utils/utils';
+import Character from './character';
+import Portal from './portal';
 
 (async () => {
   // Create a new application
@@ -44,116 +46,37 @@ import { asset, getButtonPositions } from './utils/utils';
 
   // Create some textures from an image path
   const textureButton = Texture.from(asset('portal_big'));
-  const portalScale = 0.7;
-  const buttons = [];
+  const portalScale = 0.9;
+  const buttons: Portal[] = [];
 
   const buttonPositions = getButtonPositions(3, app.screen.width, textureButton.width, portalScale, 0.05);
 
+  const characterScene = new Character();
+  characterScene.render(app, backgroundBottomOffset);
+  app.stage.addChild(characterScene.scene);
+
   for (let i = 0; i < buttonPositions.length; i++) {
-    const button = new Sprite(textureButton);
-
-    button.anchor.set(0.5);
-    button.x = buttonPositions[i].x;
-    button.y = buttonPositions[i].y;
-    button.scale.set(portalScale);
-
-    const bgAsset = new Sprite(Texture.from(backgroundButtons[i % backgroundButtons.length]));
-    bgAsset.anchor.set(0.5);
-    bgAsset.width = button.width * portalScale;
-    bgAsset.height = button.height * portalScale;
-    bgAsset.x = button.x;
-    bgAsset.y = button.y;
-    const ellipseWidth = button.width * portalScale - 40;
-    const ellipseHeight = button.height * portalScale;
-    const ellipse = new Graphics().ellipse(button.x, button.y, ellipseWidth / 2, ellipseHeight / 2);
-    bgAsset.mask = ellipse;
-    ellipse.fill(0xffffff);
-
-    // Make the button interactive...
-    button.eventMode = 'static';
-    button.cursor = 'pointer';
-
-    button
-      .on('pointerdown', onButtonDown)
-      .on('pointerup', onButtonUp)
-      .on('pointerupoutside', onButtonUp)
-      .on('pointerover', onButtonOver)
-      .on('pointerout', onButtonOut);
-
-    // Add it to the stage
-    app.stage.addChild(bgAsset);
-    app.stage.addChild(button);
-    app.stage.addChild(ellipse);
-
-    // Add button to array
-    buttons.push(button);
+    const b = new Portal(
+      getButtonPositions(3, app.screen.width, textureButton.width, portalScale, 0.05)[i],
+      backgroundButtons[i % backgroundButtons.length],
+      () => {
+        characterScene.jump(app, backgroundBottomOffset, 130);
+      }
+    );
+    b.render(app);
+    b.loadAssets();
+    b.addAnimations(app);
+    buttons.push(b);
+    app.stage.addChild(b.scene);
   }
 
-  const characterPlatform = new Sprite(Texture.from(asset('platform')));
-  characterPlatform.anchor.set(0.5, 1);
-  characterPlatform.x = app.screen.width / 2;
-  characterPlatform.y = app.screen.height  -backgroundBottomOffset;
-  characterPlatform.scale.set(1.5);
-  app.stage.addChild(characterPlatform);
+  let tick = 0;
 
-  const characterTexture = Texture.from(asset('Cindy'));
-  const character = new Sprite(characterTexture);
-  character.anchor.set(0.5, 1);
-  character.x = app.screen.width / 2 +10;
-  character.y = app.screen.height - backgroundBottomOffset - 80;
-  character.scale.set(2);
-  app.stage.addChild(character);
-  const jump = (time: number) => {
-    const amplitude = 50;
-    character.texture = Texture.from(asset('Cindy2'));
-    setTimeout(() => {
-      character.y = app.screen.height - 150 - amplitude;
-      character.texture = Texture.from(asset('Cindy3'));
-    }, time / 2);
-    setTimeout(() => {
-      character.y = app.screen.height - 150;
-      character.texture = Texture.from(asset('Cindy'));
-    }, time);
-  };
+  app.ticker.add(() => {
+    // Iterate through the sprites and update their position
+    // buttons[0].rotation = 0.05 * Math.sin(tick);
 
-  interface ButtonSprite extends Sprite {
-    isdown?: boolean;
-    isOver?: boolean;
-  }
-
-  function onButtonDown(this: ButtonSprite) {
-    this.isdown = true;
-    // this.texture = textureButtonDown;
-    this.alpha = 1;
-    console.log('Button clicked!');
-    setTimeout(() => {
-      background.texture = new Texture(Assets.get(asset('peacfulJungle_big')));
-    }, 1000);
-    jump(1300);
-  }
-
-  function onButtonUp(this: ButtonSprite) {
-    this.isdown = false;
-    if (this.isOver) {
-      // this.texture = textureButtonOver;
-    } else {
-      this.texture = textureButton;
-    }
-  }
-
-  function onButtonOver(this: ButtonSprite) {
-    this.isOver = true;
-    if (this.isdown) {
-      return;
-    }
-    // this.texture = textureButtonOver;
-  }
-
-  function onButtonOut(this: ButtonSprite) {
-    this.isOver = false;
-    if (this.isdown) {
-      return;
-    }
-    // this.texture = textureButton;
-  }
+    // Increment the ticker
+    tick += 0.1;
+  });
 })();
