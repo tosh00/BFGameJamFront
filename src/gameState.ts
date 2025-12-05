@@ -1,6 +1,8 @@
 import { api } from './apiConnections/client';
 import { PortalDifficulty, Character, ApiError, Round, RoundEvent, RoundStatus } from './apiConnections/types';
 
+const SESSION_STORAGE_KEY = 'echoes_session_id';
+
 export interface GameStateData {
   sessionId: string | null;
   balance: number;
@@ -55,6 +57,83 @@ export class GameState {
   }
 
   /**
+   * Save session ID to localStorage
+   */
+  private saveSessionToStorage(sessionId: string) {
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, sessionId);
+      console.log('💾 Session saved to localStorage:', sessionId);
+    } catch (e) {
+      console.warn('Could not save session to localStorage:', e);
+    }
+  }
+
+  /**
+   * Get session ID from localStorage
+   */
+  private getSessionFromStorage(): string | null {
+    try {
+      return localStorage.getItem(SESSION_STORAGE_KEY);
+    } catch (e) {
+      console.warn('Could not read session from localStorage:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Clear session from localStorage
+   */
+  private clearSessionFromStorage() {
+    try {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+      console.log('🗑️ Session removed from localStorage');
+    } catch (e) {
+      console.warn('Could not clear session from localStorage:', e);
+    }
+  }
+
+  /**
+   * Initialize or restore session from localStorage
+   * Creates new session if none exists or stored session is invalid
+   */
+  async initOrRestoreSession(): Promise<boolean> {
+    this.update({ isLoading: true });
+
+    // Try to restore existing session from localStorage
+    const storedSessionId = this.getSessionFromStorage();
+    
+    if (storedSessionId) {
+      console.log('🔄 Found stored session, attempting to restore:', storedSessionId);
+      
+      // Try to get session data from server
+      const response = await api.getSession(storedSessionId);
+      
+      if (!this.isApiError(response) && response.success) {
+        // Session is still valid
+        this.update({
+          sessionId: response.session.sessionId,
+          balance: response.balance,
+          character: response.session.character,
+          isLoading: false,
+        });
+        console.log('✅ Session restored:', response.session.sessionId);
+        console.log('💰 Current balance:', response.balance);
+        
+        // Check for any active round
+        await this.checkActiveRound();
+        
+        return true;
+      } else {
+        console.log('⚠️ Stored session invalid or expired, creating new one...');
+        this.clearSessionFromStorage();
+      }
+    }
+
+    // No valid stored session, create new one
+    return this.createSession();
+  }
+
+  /**
    * Create a new game session
    */
   async createSession(username?: string, characterName?: string): Promise<boolean> {
@@ -69,6 +148,9 @@ export class GameState {
     }
 
     if (response.success) {
+      // Save session to localStorage
+      this.saveSessionToStorage(response.sessionId);
+      
       this.update({
         sessionId: response.sessionId,
         balance: response.balance,

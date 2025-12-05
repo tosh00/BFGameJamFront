@@ -105,6 +105,10 @@ export default class Portal {
     this.scene.addChild(this.backgroundSprite);
     this.scene.addChild(this.portalSprite);
     this.scene.addChild(ellipse);
+
+    // Set pivot to portal center so scaling happens from center
+    this.scene.pivot.set(this.position.x, this.position.y);
+    this.scene.position.set(this.position.x, this.position.y);
   }
 
   addAnimations(app: any) {
@@ -187,6 +191,37 @@ export default class Portal {
         const easeProgress = 1 - Math.pow(1 - progress, 3);
         const overshoot = progress < 0.8 ? 0 : Math.sin((progress - 0.8) * Math.PI * 5) * 0.05 * (1 - progress);
         const newScale = targetScale * easeProgress + overshoot;
+
+        this.scene.scale.set(newScale);
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          this.scene.scale.set(targetScale);
+          resolve();
+        }
+      };
+
+      requestAnimationFrame(animate);
+    });
+  }
+
+  /**
+   * Set portal selected state - scales to 1.2x when selected
+   */
+  setSelected(selected: boolean, duration: number = 200): Promise<void> {
+    return new Promise((resolve) => {
+      const startScale = this.scene.scale.x;
+      const targetScale = selected ? 1.2 : 1;
+      const startTime = performance.now();
+
+      const animate = () => {
+        const elapsed = performance.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // Ease out
+        const easeProgress = 1 - Math.pow(1 - progress, 3);
+        const newScale = startScale + (targetScale - startScale) * easeProgress;
 
         this.scene.scale.set(newScale);
 

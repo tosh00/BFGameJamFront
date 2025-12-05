@@ -1,16 +1,23 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import gameState from './gameState';
 
+// Available bet amounts
+const BET_OPTIONS = [5, 10, 25, 50, 100];
+
 export default class Menu {
   scene: Container;
-  private onStart: () => void;
+  private onStart: (betAmount: number) => void;
   private statusText: Text | null = null;
   private button: Graphics | null = null;
   private buttonText: Text | null = null;
   private screenWidth: number;
   private screenHeight: number;
+  
+  // Bet selection
+  private selectedBetIndex: number = 1; // Default to 10
+  private betAmountText: Text | null = null;
 
-  constructor(screenWidth: number, screenHeight: number, onStart: () => void) {
+  constructor(screenWidth: number, screenHeight: number, onStart: (betAmount: number) => void) {
     this.onStart = onStart;
     this.screenWidth = screenWidth;
     this.screenHeight = screenHeight;
@@ -39,7 +46,7 @@ export default class Menu {
     });
     title.anchor.set(0.5);
     title.x = screenWidth / 2;
-    title.y = screenHeight / 3;
+    title.y = screenHeight / 4;
     this.scene.addChild(title);
 
     // Subtitle
@@ -53,14 +60,33 @@ export default class Menu {
     });
     subtitle.anchor.set(0.5);
     subtitle.x = screenWidth / 2;
-    subtitle.y = screenHeight / 3 + 60;
+    subtitle.y = screenHeight / 4 + 50;
     this.scene.addChild(subtitle);
+
+    // Balance display
+    const state = gameState.getState();
+    const balanceText = new Text({
+      text: `Your Gold: ${state.balance}`,
+      style: {
+        fontFamily: 'Arial',
+        fontSize: 22,
+        fill: 0xffd700, // Gold color
+        fontWeight: 'bold',
+      },
+    });
+    balanceText.anchor.set(0.5);
+    balanceText.x = screenWidth / 2;
+    balanceText.y = screenHeight / 4 + 90;
+    this.scene.addChild(balanceText);
+
+    // Bet selection section
+    this.createBetSelector(screenWidth, screenHeight);
 
     // Start button
     const buttonWidth = 200;
     const buttonHeight = 60;
     const buttonX = screenWidth / 2 - buttonWidth / 2;
-    const buttonY = screenHeight / 2 + 40;
+    const buttonY = screenHeight / 2 + 80;
 
     const button = new Graphics();
     button.roundRect(buttonX, buttonY, buttonWidth, buttonHeight, 12);
@@ -125,29 +151,142 @@ export default class Menu {
     this.scene.addChild(this.statusText);
   }
 
+  private createBetSelector(screenWidth: number, screenHeight: number) {
+    const selectorY = screenHeight / 2;
+    
+    // Label
+    const label = new Text({
+      text: 'Bet Amount:',
+      style: {
+        fontFamily: 'Arial',
+        fontSize: 20,
+        fill: 0xcccccc,
+      },
+    });
+    label.anchor.set(0.5);
+    label.x = screenWidth / 2;
+    label.y = selectorY - 35;
+    this.scene.addChild(label);
+
+    // Minus button
+    const minusBtn = this.createArrowButton(screenWidth / 2 - 100, selectorY, '<', () => {
+      if (this.selectedBetIndex > 0) {
+        this.selectedBetIndex--;
+        this.updateBetDisplay();
+      }
+    });
+    this.scene.addChild(minusBtn);
+
+    // Bet amount display
+    this.betAmountText = new Text({
+      text: `${BET_OPTIONS[this.selectedBetIndex]} gold`,
+      style: {
+        fontFamily: 'Arial',
+        fontSize: 28,
+        fill: 0xffd700, // Gold color
+        fontWeight: 'bold',
+      },
+    });
+    this.betAmountText.anchor.set(0.5);
+    this.betAmountText.x = screenWidth / 2;
+    this.betAmountText.y = selectorY;
+    this.scene.addChild(this.betAmountText);
+
+    // Plus button
+    const plusBtn = this.createArrowButton(screenWidth / 2 + 100, selectorY, '>', () => {
+      if (this.selectedBetIndex < BET_OPTIONS.length - 1) {
+        this.selectedBetIndex++;
+        this.updateBetDisplay();
+      }
+    });
+    this.scene.addChild(plusBtn);
+  }
+
+  private createArrowButton(x: number, y: number, text: string, onClick: () => void): Container {
+    const container = new Container();
+    const size = 40;
+    
+    const bg = new Graphics();
+    bg.roundRect(-size/2, -size/2, size, size, 8);
+    bg.fill({ color: 0x444444 });
+    container.addChild(bg);
+
+    const label = new Text({
+      text: text,
+      style: {
+        fontFamily: 'Arial',
+        fontSize: 24,
+        fill: 0xffffff,
+        fontWeight: 'bold',
+      },
+    });
+    label.anchor.set(0.5);
+    container.addChild(label);
+
+    container.position.set(x, y);
+    container.interactive = true;
+    container.cursor = 'pointer';
+
+    container.on('pointerover', () => {
+      bg.clear();
+      bg.roundRect(-size/2, -size/2, size, size, 8);
+      bg.fill({ color: 0x666666 });
+    });
+
+    container.on('pointerout', () => {
+      bg.clear();
+      bg.roundRect(-size/2, -size/2, size, size, 8);
+      bg.fill({ color: 0x444444 });
+    });
+
+    container.on('pointerdown', () => {
+      bg.clear();
+      bg.roundRect(-size/2, -size/2, size, size, 8);
+      bg.fill({ color: 0x333333 });
+    });
+
+    container.on('pointerup', () => {
+      bg.clear();
+      bg.roundRect(-size/2, -size/2, size, size, 8);
+      bg.fill({ color: 0x666666 });
+      onClick();
+    });
+
+    return container;
+  }
+
+  private updateBetDisplay() {
+    if (this.betAmountText) {
+      this.betAmountText.text = `${BET_OPTIONS[this.selectedBetIndex]} gold`;
+    }
+  }
+
+  getSelectedBet(): number {
+    return BET_OPTIONS[this.selectedBetIndex];
+  }
+
   private async startGame() {
     if (!this.button || !this.buttonText || !this.statusText) return;
 
-    // Disable button and show loading
-    this.button.interactive = false;
-    this.buttonText.text = 'Connecting...';
-    this.statusText.text = 'Creating session...';
-
-    const success = await gameState.createSession();
-
-    if (success) {
-      this.statusText.text = `Connected! Balance: ${gameState.getState().balance} gold`;
-      // Short delay to show the message, then start
-      setTimeout(() => {
-        this.onStart();
-      }, 500);
-    } else {
-      // Re-enable button on failure
-      this.button.interactive = true;
-      this.buttonText.text = 'Start Game';
-      this.statusText.text = 'Failed to connect. Try again.';
+    // Session is already created on app init - just start the game with selected bet
+    const state = gameState.getState();
+    
+    if (!state.sessionId) {
+      this.statusText.text = 'No session found. Please refresh.';
       this.statusText.style.fill = 0xff6666;
+      return;
     }
+
+    // Check if player can afford the bet
+    const selectedBet = this.getSelectedBet();
+    if (!gameState.canAffordBet(selectedBet)) {
+      this.statusText.text = `Not enough gold! Need ${selectedBet}g`;
+      this.statusText.style.fill = 0xff6666;
+      return;
+    }
+
+    // Start the game immediately
+    this.onStart(selectedBet);
   }
 
   hide() {

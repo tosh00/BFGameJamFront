@@ -1,15 +1,16 @@
-import { Application, Assets, Graphics, Sprite, Texture } from 'pixi.js';
+import { Application, Assets, Sprite, Texture } from 'pixi.js';
 import { asset, getButtonPositions } from './utils/utils';
 import { loadAllBackgrounds, getRandomBackground, Difficulty } from './utils/loadAssets';
 import Character from './character';
 import Portal from './portal';
 import Terminal from './terminal';
 import Menu from './menu';
+import DeathScreen from './deathScreen';
 import gameState from './gameState';
 import { PortalDifficulty } from './apiConnections/types';
 
-// Default bet amount
-const DEFAULT_BET = 10;
+// Current bet amount (set from menu selection)
+let currentBetAmount = 10;
 
 (async () => {
   // Create a new application
@@ -37,23 +38,39 @@ const DEFAULT_BET = 10;
   // Load all background assets by difficulty
   await loadAllBackgrounds();
 
+  // Initialize or restore session from localStorage BEFORE showing menu
+  console.log('🎮 Initializing game session...');
+  const sessionReady = await gameState.initOrRestoreSession();
+  
+  if (!sessionReady) {
+    console.error('❌ Failed to initialize session');
+    // Show error to user - you could add an error screen here
+  }
+
   // Portal difficulties mapping (index 0 = easy, 1 = medium, 2 = hard)
   const portalDifficulties: Difficulty[] = ['easy', 'medium', 'hard'];
-  
+
   // Map difficulty to API enum
   const difficultyToApi: Record<Difficulty, PortalDifficulty> = {
-    'easy': PortalDifficulty.EASY,
-    'medium': PortalDifficulty.MEDIUM,
-    'hard': PortalDifficulty.HARD,
+    easy: PortalDifficulty.EASY,
+    medium: PortalDifficulty.MEDIUM,
+    hard: PortalDifficulty.HARD,
+  };
+
+  // Portal info - chances, multipliers, world names
+  const portalInfo: Record<Difficulty, { name: string; worldName: string; chance: string; multiplier: string; color: string }> = {
+    easy: { name: 'Easy', worldName: 'Peaceful Meadows', chance: '80%', multiplier: '1.2x', color: '' },
+    medium: { name: 'Medium', worldName: 'Mystic Forest', chance: '50%', multiplier: '2x', color: '' },
+    hard: { name: 'Hard', worldName: 'Dragon\'s Lair', chance: '25%', multiplier: '4x', color: '' },
   };
 
   // Create a background with a random easy background initially
-  const initialBackground = 'https://raw.githubusercontent.com/tosh00/BFGameJamFrontAssets/refs/heads/main/backgrounds/village.png';
+  const initialBackground =
+    'https://raw.githubusercontent.com/tosh00/BFGameJamFrontAssets/refs/heads/main/backgrounds/village.png';
   const background = Sprite.from(initialBackground);
 
   const backgroundBottomOffset = 200;
 
-  // background.width = app.screen.width;
   background.height = app.screen.height - backgroundBottomOffset;
 
   // Add background to stage...
@@ -70,14 +87,22 @@ const DEFAULT_BET = 10;
   characterScene.render(app, backgroundBottomOffset);
   app.stage.addChild(characterScene.scene);
 
-  interface ButtonSprite extends Sprite {
-    isdown?: boolean;
-    isOver?: boolean;
-  }
-  
   // Track if portals are clickable (prevent double-clicks during animations)
   let portalsEnabled = true;
   
+  // Currently selected portal index (-1 = none selected)
+  let selectedPortalIndex: number = -1;
+
+  //  terminal UI (create early so we can reference it)
+  const terminal = new Terminal(backgroundBottomOffset, app.screen.height, app.screen.width);
+  terminal.render(app);
+  terminal.setCashOutCallback(handleCashOut);
+  terminal.setGoCallback(handleGoClick);
+  app.stage.addChild(terminal.scene);
+
+  // Death screen (Dark Souls style "YOU DIED")
+
+
   for (let i = 0; i < buttonPositions.length; i++) {
     const difficulty = portalDifficulties[i];
     const initialBgUrl = getRandomBackground(difficulty);
@@ -87,12 +112,15 @@ const DEFAULT_BET = 10;
       initialBgUrl,
       (B) => {
         if (portalsEnabled) {
-          handlePortalClick(i);
+          selectPortal(i);
         }
       },
       () => {},
       () => {
-        console.log('over');
+        // Hover - show quick preview
+        if (portalsEnabled) {
+          showPortalHoverInfo(i);
+        }
       },
       () => {}
     );
@@ -101,20 +129,101 @@ const DEFAULT_BET = 10;
     buttons.push(b);
     app.stage.addChild(b.scene);
   }
+  const deathScreen = new DeathScreen(app.screen.width, app.screen.height);
+  app.stage.addChild(deathScreen.scene);
+  /**
+   * Update all terminal sections with current state
+   */
+  function updateTerminalSections() {
+    const state = gameState.getState();
+    const round = state.activeRound;
+    
+    // Update balance
+    terminal.setBalance(state.balance);
+    
+    // Update round money
+    terminal.setCurrentRoundMoney(round?.accumulatedWinnings || 0);
+    
+    // Show cash out if we have winnings
+    if (state.canCashOut && round) {
+      terminal.showCashOutButton(true, round.accumulatedWinnings);
+    } else {
+      terminal.showCashOutButton(false);
+    }
+  }
 
   /**
-   * Handle portal click - either start new round or continue existing one
+   * Select a portal and show its info in terminal
    */
-  async function handlePortalClick(portalIndex: number) {
+  function selectPortal(portalIndex: number) {
+    // Deselect previous portal if any
+    if (selectedPortalIndex !== -1 && selectedPortalIndex !== portalIndex) {
+      buttons[selectedPortalIndex].setSelected(false);
+    }
+    
+    selectedPortalIndex = portalIndex;
+    const clickedPortal = buttons[portalIndex];
+    const difficulty = clickedPortal.difficulty;
+    const info = portalInfo[difficulty];
+    
+    console.log('Portal selected! Difficulty:', difficulty);
+    
+    // Scale up selected portal
+    clickedPortal.setSelected(true);
+    
+    // Update portal info section
+    terminal.setPortalInfo(info);
+    
+    // Show Go button
+    terminal.showGoButton(true);
+    
+    // Update other sections
+    updateTerminalSections();
+  }
+
+  /**
+   * Show quick hover info for portal
+   */
+  function showPortalHoverInfo(portalIndex: number) {
+    // Only show hover info if no portal is selected
+    if (selectedPortalIndex !== -1) return;
+    
+    const hoveredPortal = buttons[portalIndex];
+    const difficulty = hoveredPortal.difficulty;
+    const info = portalInfo[difficulty];
+    
+    console.log(`Hovering: ${info.name} - ${info.chance} chance, ${info.multiplier} reward`);
+  }
+
+  /**
+   * Handle Go! button click - enter the selected portal
+   */
+  async function handleGoClick() {
+    if (selectedPortalIndex === -1) {
+      terminal.setLastEventResult('Select a portal\nfirst!');
+      return;
+    }
+    
+    const portalIndex = selectedPortalIndex;
     const clickedPortal = buttons[portalIndex];
     const difficulty = clickedPortal.difficulty;
     const apiDifficulty = difficultyToApi[difficulty];
     const portalBackgroundUrl = clickedPortal.getBackgroundUrl();
+    const info = portalInfo[difficulty];
     
-    console.log('Portal clicked! Difficulty:', difficulty);
+    console.log('GO! Entering portal. Difficulty:', difficulty);
     
-    // Disable portals during API call and animation
+    // Disable portals and hide Go button during API call and animation
     portalsEnabled = false;
+    terminal.showGoButton(false);
+    terminal.setPortalInfo(null);
+    
+    // Reset selected portal scale
+    clickedPortal.setSelected(false);
+    selectedPortalIndex = -1;
+    
+    // Update last event to show we're entering
+    terminal.setLastEventResult(`Entering\n${info.worldName}...`);
     
     // Check if we have an active round (continue) or need to start new one
     const hasActiveRound = gameState.hasActiveRound();
@@ -123,23 +232,20 @@ const DEFAULT_BET = 10;
     
     if (hasActiveRound) {
       // Continue existing round
-      terminal.setText('Continuing your journey...');
       result = await gameState.continueRound();
     } else {
       // Start new round
-      const state = gameState.getState();
-      if (!gameState.canAffordBet(DEFAULT_BET)) {
-        terminal.setText(`Not enough gold! Need ${DEFAULT_BET} to enter.`);
+      if (!gameState.canAffordBet(currentBetAmount)) {
+        terminal.setLastEventResult(`Not enough gold!\nNeed ${currentBetAmount}g`);
         portalsEnabled = true;
         return;
       }
       
-      terminal.setText(`Entering ${difficulty} portal...`);
-      result = await gameState.startRound(apiDifficulty, DEFAULT_BET);
+      result = await gameState.startRound(apiDifficulty, currentBetAmount);
     }
     
     if (!result.success) {
-      terminal.setText(`Error: ${result.error}`);
+      terminal.setLastEventResult(`Error:\n${result.error}`);
       portalsEnabled = true;
       return;
     }
@@ -153,32 +259,30 @@ const DEFAULT_BET = 10;
       buttons.forEach((portal) => {
         portal.hide(0);
       });
-      
+
       // Change main background
       background.texture = Texture.from(portalBackgroundUrl);
-      
-      // Update UI based on result
+
+      // Update terminal with result
       updateTerminalWithResult(result);
-      
+
       // After a few seconds, reveal portals with new backgrounds
       setTimeout(() => {
         buttons.forEach((portal, index) => {
           const newBgUrl = getRandomBackground(portalDifficulties[index]);
           portal.setBackground(newBgUrl);
-          
+
           // Stagger the reveal animation
           setTimeout(() => {
             portal.reveal(500);
           }, index * 150);
         });
-        
+
         // Re-enable portals after reveal animation
         setTimeout(() => {
           portalsEnabled = true;
         }, buttons.length * 150 + 500);
-        
       }, 2000); // Wait 2 seconds before revealing portals
-      
     }, 1000); // Wait for jump animation
   }
 
@@ -195,46 +299,94 @@ const DEFAULT_BET = 10;
   }) {
     const state = gameState.getState();
     const round = state.activeRound;
-    
+
+    // Update balance and round money
+    terminal.setBalance(state.balance);
+    terminal.setCurrentRoundMoney(round?.accumulatedWinnings || 0);
+
     if (result.isWin) {
-      // Win - show accumulated winnings and options
+      // Win - show result
       const eventNum = round?.events?.length || 1;
-      const accumulated = round?.accumulatedWinnings || result.reward;
       const multiplier = round?.currentMultiplier?.toFixed(2) || '1.00';
       const nextDifficulty = round?.nextEventDifficulty || 0;
-      
-      let text = `🎉 EVENT ${eventNum}: WIN!\n`;
-      text += `+${result.reward} gold this event\n`;
-      text += `Total accumulated: ${accumulated} gold (${multiplier}x)\n\n`;
-      text += `💰 Balance: ${state.balance} gold\n\n`;
-      
-      if (state.canContinue) {
-        text += `⚠️ RISK IT? Next portal: ${nextDifficulty}% fail chance\n`;
-        text += `Choose a portal to CONTINUE or CASH OUT!`;
-      }
-      
-      terminal.setText(text);
-      
+
+      let eventText = `WIN!\n`;
+      eventText += `Event #${eventNum}\n`;
+      eventText += `+${result.reward}g\n`;
+      eventText += `(${multiplier}x)\n`;
+
+      terminal.setLastEventResult(eventText);
+
       // Show Cash Out button if possible
-      terminal.showCashOutButton(state.canCashOut, accumulated);
-      
-    } else {
-      // Loss - show what was lost
-      let text = `💀 DEFEAT!\n`;
-      text += `${result.message}\n\n`;
-      
-      if (result.totalLost) {
-        text += `Lost: ${result.totalLost} gold\n`;
+      if (state.canCashOut && round) {
+        terminal.showCashOutButton(true, round.accumulatedWinnings);
       }
+    } else {
+      // Loss - show death screen Dark Souls style
+      const lostAmount = result.totalLost || 0;
       
-      text += `💰 Balance: ${state.balance} gold\n\n`;
-      text += `Choose a portal to try again!`;
-      
-      terminal.setText(text);
-      
+      // Show "YOU DIED" screen
+      deathScreen.show(() => {
+        // After death screen, reset to home state
+        resetToHomeScreen(lostAmount);
+      });
+
       // Hide Cash Out button
       terminal.showCashOutButton(false);
     }
+  }
+
+  /**
+   * Reset game to home screen after death - show menu again
+   */
+  function resetToHomeScreen(lostAmount: number) {
+    const state = gameState.getState();
+    
+    // Reset background to village
+    background.texture = Texture.from(initialBackground);
+    
+    // Update terminal
+    terminal.setBalance(state.balance);
+    terminal.setCurrentRoundMoney(0);
+    terminal.setLastEventResult(`DEFEAT!\nLost: ${lostAmount}g`);
+    terminal.setPortalInfo(null);
+    terminal.showGoButton(false);
+    terminal.showCashOutButton(false);
+    
+    // Hide portals
+    buttons.forEach((portal) => {
+      portal.hide(0);
+    });
+    
+    // Show menu again
+    showMenu();
+  }
+
+  /**
+   * Show the menu and set up for new game
+   */
+  function showMenu() {
+    // Create new menu instance
+    const newMenu = new Menu(app.screen.width, app.screen.height, (betAmount: number) => {
+      currentBetAmount = betAmount;
+      newMenu.destroy();
+      // Game is now visible and playable - update terminal with initial state
+      updateTerminalSections();
+      terminal.setLastEventResult(`Welcome!\nBet: ${currentBetAmount}g\nSelect a portal\nto begin!`);
+      
+      // Reveal portals with new backgrounds
+      buttons.forEach((portal, index) => {
+        const newBgUrl = getRandomBackground(portalDifficulties[index]);
+        portal.setBackground(newBgUrl);
+        portal.reveal(500);
+      });
+      
+      // Re-enable portals
+      setTimeout(() => {
+        portalsEnabled = true;
+      }, 600);
+    });
+    app.stage.addChild(newMenu.scene);
   }
 
   /**
@@ -242,72 +394,46 @@ const DEFAULT_BET = 10;
    */
   async function handleCashOut() {
     portalsEnabled = false;
-    terminal.setText('Cashing out...');
+    terminal.showGoButton(false);
+    terminal.setPortalInfo(null);
+    selectedPortalIndex = -1;
     
+    terminal.setLastEventResult('Cashing out...');
+
     const result = await gameState.cashOut();
-    
+
     if (result.success) {
       const state = gameState.getState();
-      let text = `💰 CASHED OUT!\n`;
-      text += `Won: ${result.totalWinnings} gold\n`;
-      text += `${result.message}\n\n`;
-      text += `💰 Balance: ${state.balance} gold\n\n`;
-      text += `Choose a portal to start a new round!`;
       
-      terminal.setText(text);
+      terminal.setBalance(state.balance);
+      terminal.setCurrentRoundMoney(0);
+      terminal.setLastEventResult(`CASHED OUT!\nWon: ${result.totalWinnings}g\nNice one!`);
       terminal.showCashOutButton(false);
     } else {
-      terminal.setText(`Error cashing out: ${result.error}`);
+      terminal.setLastEventResult(`Error:\n${result.error}`);
     }
-    
+
     portalsEnabled = true;
   }
 
-  //  terminal UI
-
-  const terminal = new Terminal(backgroundBottomOffset, app.screen.height, app.screen.width);
-  terminal.render(app);
-  
-  // Set up Cash Out callback
-  terminal.setCashOutCallback(handleCashOut);
-  
-  app.stage.addChild(terminal.scene);
-
-  app.ticker.add(() => {
-    // Update terminal typewriter effect
-    terminal.update();
-  });
-
   // Starting menu
-  const menu = new Menu(app.screen.width, app.screen.height, () => {
+  const menu = new Menu(app.screen.width, app.screen.height, (betAmount: number) => {
+    currentBetAmount = betAmount;
     menu.destroy();
-    // Game is now visible and playable - show balance and portal info
-    updateTerminalInfo();
+    // Game is now visible and playable - update terminal with initial state
+    updateTerminalSections();
+    terminal.setLastEventResult(`Welcome!\nBet: ${currentBetAmount}g\nSelect a portal\nto begin!`);
   });
   app.stage.addChild(menu.scene);
 
-  // Portal chances based on difficulty
-  const portalInfo = {
-    EASY: { name: 'Easy', chance: '80%', rtp: '96%' },
-    MEDIUM: { name: 'Medium', chance: '50%', rtp: '94%' },
-    HARD: { name: 'Hard', chance: '25%', rtp: '92%' },
-  };
-
-  function updateTerminalInfo() {
-    const state = gameState.getState();
-    const balance = state.balance;
-    const infoText =
-      `💰 Balance: ${balance} gold | Bet: ${DEFAULT_BET} gold\n\n` +
-      `Choose a Portal:\n` +
-      `[🟢 EASY: ${portalInfo.EASY.chance} win, 1.2x reward]\n` +
-      `[🟡 MEDIUM: ${portalInfo.MEDIUM.chance} win, 2x reward]\n` +
-      `[🔴 HARD: ${portalInfo.HARD.chance} win, 4x reward]\n\n` +
-      `Win to accumulate rewards - CASH OUT or risk it all!`;
-    terminal.setText(infoText);
-  }
-  
   // Subscribe to game state changes to update UI
   gameState.subscribe((state) => {
+    terminal.setBalance(state.balance);
+    
+    if (state.activeRound) {
+      terminal.setCurrentRoundMoney(state.activeRound.accumulatedWinnings);
+    }
+    
     // Update cash out button visibility based on state
     if (state.canCashOut && state.activeRound) {
       terminal.showCashOutButton(true, state.activeRound.accumulatedWinnings);
