@@ -112,6 +112,9 @@ let currentBetAmount = 10;
   // Track if portals are clickable (prevent double-clicks during animations)
   let portalsEnabled = true;
 
+  // Track if we're in an event animation (suppress auto cash out button)
+  let eventAnimationInProgress = false;
+
   // Currently selected portal index (-1 = none selected)
   let selectedPortalIndex: number = -1;
 
@@ -166,14 +169,17 @@ let currentBetAmount = 10;
     // Update balance
     terminal.setBalance(state.balance);
 
-    // Update round money
-    terminal.setCurrentRoundMoney(round?.accumulatedWinnings || 0);
+    // Only update round money and cash out if not in event animation
+    if (!eventAnimationInProgress) {
+      // Update round money
+      terminal.setCurrentRoundMoney(round?.accumulatedWinnings || 0);
 
-    // Show cash out if we have winnings
-    if (state.canCashOut && round) {
-      terminal.showCashOutButton(true, round.accumulatedWinnings);
-    } else {
-      terminal.showCashOutButton(false);
+      // Show cash out if we have winnings
+      if (state.canCashOut && round) {
+        terminal.showCashOutButton(true, round.accumulatedWinnings);
+      } else {
+        terminal.showCashOutButton(false);
+      }
     }
   }
 
@@ -283,6 +289,12 @@ let currentBetAmount = 10;
     // Determine outcome for event animation
     const eventOutcome = result.isWin ? 'good' : 'bad';
 
+    // Mark that we're starting event animation (suppress auto cash out button)
+    eventAnimationInProgress = true;
+
+    // Hide cash out button during event animation
+    terminal.showCashOutButton(false);
+
     // Start the jump animation
     characterScene.jump(app, backgroundBottomOffset, 100);
 
@@ -325,6 +337,9 @@ let currentBetAmount = 10;
         // Win: shift character back to center, then reveal portals
         await characterScene.shiftToCenter(400);
 
+        // Event animation complete - allow cash out button to show
+        eventAnimationInProgress = false;
+
         // Update terminal with result
         updateTerminalWithResult(result);
 
@@ -345,6 +360,7 @@ let currentBetAmount = 10;
         }, buttons.length * 150 + 500);
       } else {
         // Loss: show death screen (character stays shifted, will reset on menu)
+        eventAnimationInProgress = false;
         updateTerminalWithResult(result);
       }
     }, 1000); // Wait for jump animation
@@ -513,15 +529,18 @@ let currentBetAmount = 10;
   gameState.subscribe((state) => {
     terminal.setBalance(state.balance);
 
-    if (state.activeRound) {
-      terminal.setCurrentRoundMoney(state.activeRound.accumulatedWinnings);
-    }
+    // Only update round money and cash out button if not in event animation
+    // (we want to show updates only after event resolves, not during animation)
+    if (!eventAnimationInProgress) {
+      if (state.activeRound) {
+        terminal.setCurrentRoundMoney(state.activeRound.accumulatedWinnings);
+      }
 
-    // Update cash out button visibility based on state
-    if (state.canCashOut && state.activeRound) {
-      terminal.showCashOutButton(true, state.activeRound.accumulatedWinnings);
-    } else if (!state.canCashOut) {
-      terminal.showCashOutButton(false);
+      if (state.canCashOut && state.activeRound) {
+        terminal.showCashOutButton(true, state.activeRound.accumulatedWinnings);
+      } else if (!state.canCashOut) {
+        terminal.showCashOutButton(false);
+      }
     }
   });
 })();
