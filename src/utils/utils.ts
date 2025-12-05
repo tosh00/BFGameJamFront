@@ -10,7 +10,6 @@ export const getButtonPositions = (number: number, screenWidth:number, spriteWid
     const y = 100 + ((i+1)%2 * 150);
     // const y = 100
     const x = i*spacing +spacing/2 + (screenWidth*offsetsPercentage) ;
-    console.log("x:", x, " y:", y);
     buttonPositions.push({x, y});
   }
   return buttonPositions;
