@@ -11,6 +11,7 @@ export default class Portal {
   elements: Sprite[] = [];
   pointerOver = false;
   portalSprite!: Sprite;
+  worldName: string;
   backgroundSprite!: Sprite;
   callbacks = {
     onButtonOver: (event: FederatedPointerEvent) => {},
@@ -28,6 +29,7 @@ export default class Portal {
     onButtonOver?: (event: FederatedPointerEvent) => void,
     onButtonOut?: (event: FederatedPointerEvent) => void
   ) {
+    this.worldName = backgroundUrl.split('/').pop() || 'Unknown';
     this.scene = new Container({
       isRenderGroup: true,
     });

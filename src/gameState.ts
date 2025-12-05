@@ -292,17 +292,24 @@ export class GameState {
     if (response.success) {
       const { round, lastEvent, session, message } = response;
       
+      // Derive canCashOut from round state if not explicitly provided
+      // Cash out is possible when: round is IN_PROGRESS and has accumulated winnings
+      const canCashOut = round.canCashOut ?? (round.status === 'IN_PROGRESS' && round.accumulatedWinnings > 0);
+      const canContinue = round.canContinue ?? (round.status === 'IN_PROGRESS');
+      
       this.update({
         balance: session.balance,
         activeRound: round,
         lastEvent: lastEvent,
-        canContinue: round.canContinue,
-        canCashOut: round.canCashOut,
+        canContinue: canContinue,
+        canCashOut: canCashOut,
         isLoading: false,
       });
 
       const isWin = lastEvent.isWin;
-      
+      console.log(`🎯 StartRound state: canCashOut=${canCashOut}, canContinue=${canContinue}, status=${round.status}`);
+      console.log(`💰 Accumulated winnings: ${round.accumulatedWinnings}`);
+
       if (isWin) {
         console.log(`🎉 Event ${lastEvent.eventIndex + 1}: WYGRANA! +${lastEvent.reward} gold`);
         console.log(`📊 Accumulated: ${round.accumulatedWinnings} gold (${round.currentMultiplier.toFixed(2)}x)`);
@@ -366,16 +373,24 @@ export class GameState {
     if (response.success) {
       const { round, lastEvent, session, message } = response;
       
+      // Derive canCashOut from round state if not explicitly provided
+      // Cash out is possible when: round is IN_PROGRESS and has accumulated winnings
+      const canCashOut = round.canCashOut ?? (round.status === 'IN_PROGRESS' && round.accumulatedWinnings > 0);
+      const canContinue = round.canContinue ?? (round.status === 'IN_PROGRESS');
+      
       this.update({
         balance: session.balance,
         activeRound: round,
         lastEvent: lastEvent,
-        canContinue: round.canContinue,
-        canCashOut: round.canCashOut,
+        canContinue: canContinue,
+        canCashOut: canCashOut,
         isLoading: false,
       });
 
       const isWin = lastEvent.isWin;
+      
+      console.log(`🎯 ContinueRound state: canCashOut=${canCashOut}, canContinue=${canContinue}, status=${round.status}`);
+      console.log(`💰 Accumulated winnings: ${round.accumulatedWinnings}`);
       
       if (isWin) {
         console.log(`🎉 Event ${lastEvent.eventIndex + 1}: WYGRANA! +${lastEvent.reward} gold`);

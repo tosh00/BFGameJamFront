@@ -191,10 +191,15 @@ let currentBetAmount = 10;
     const difficulty = clickedPortal.difficulty;
     const info = getPortalInfo(difficulty);
 
-    console.log('Portal selected! Difficulty:', difficulty);
+    console.log('Portal selected! Difficulty:', info);
+
+    //spliting cammelcase world name indo words
+    info.worldName = clickedPortal.backgroundUrl.split('/').pop()?.replace('.png', '') || 'Unknown';
 
     // Scale up selected portal
     clickedPortal.setSelected(true);
+
+
 
     // Update portal info section
     terminal.setPortalInfo(info);

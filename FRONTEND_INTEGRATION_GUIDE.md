@@ -103,20 +103,10 @@ Tworzy nową sesję gry.
   "character": {
     "id": "uuid",
     "name": "Wanderer",
-    "level": 1,
-    "experience": 0,
-    "experienceToNextLevel": 100,
-    "stats": {
-      "luck": 10,
-      "agility": 10,
-      "intuition": 10,
-      "magicAffinity": 10,
-      "dimensionalMastery": 5
-    },
-    "skills": [],
-    "unlockedPortals": ["EASY"],
     "inventory": [],
-    "activeModifiers": []
+    "activeModifiers": [],
+    "createdAt": 1701234567890,
+    "lastPlayedAt": 1701234567890
   },
   "balance": 1000
 }
@@ -194,7 +184,6 @@ Rozpoczyna nową rundę - pobiera zakład i losuje pierwszy event.
     "balanceBefore": 1000,
     "balanceAfter": 900,
     
-    "totalExperienceGained": 35,
     "baseRtp": 0.96,
     "startedAt": 1701234567800
   },
@@ -376,23 +365,25 @@ Pobiera konfigurację trudności dla portalu.
   "success": true,
   "difficulty": "EASY",
   "config": {
-    "baseWinChance": 65,
-    "difficultyIncreasePerEvent": 8,
-    "minWinChance": 25,
-    "multiplierIncreasePerEvent": 0.5,
-    "maxEvents": 7,
+    "baseWinChance": 80,
+    "difficultyIncreasePerEvent": 0,
+    "minWinChance": 80,
+    "multiplierIncreasePerEvent": 0,
+    "maxEvents": 1,
     "minEventsForCashOut": 1
   }
 }
 ```
 
-**Konfiguracja dla wszystkich poziomów:**
+**Konfiguracja dla wszystkich poziomów (prosta matematyka):**
 
-| Portal | Start % | Spadek/event | Min % | Mnożnik/event | Max events |
-|--------|---------|--------------|-------|---------------|------------|
-| EASY   | 65%     | -8%          | 25%   | +0.5x         | 7          |
-| MEDIUM | 55%     | -10%         | 15%   | +1.0x         | 6          |
-| HARD   | 45%     | -12%         | 10%   | +2.0x         | 5          |
+| Portal | Win Chance | Multiplier | RTP |
+|--------|------------|------------|-----|
+| EASY   | 80%        | 1.20x      | 96% |
+| MEDIUM | 55%        | 1.71x      | 94% |
+| HARD   | 35%        | 2.63x      | 92% |
+
+**Formuła:** `Multiplier = (1 / WinChance) × RTP`
 
 ---
 
@@ -478,7 +469,7 @@ enum PortalDifficulty {
 enum EventType {
   CHEST = 'CHEST',      // Skrzynia - złoto
   LAMP = 'LAMP',        // Lampa - mnożniki
-  BOOK = 'BOOK',        // Księga - XP
+  BOOK = 'BOOK',        // Księga - bonusy
   DIAMONDS = 'DIAMONDS' // Diamenty - rzadkie nagrody
 }
 
@@ -488,24 +479,25 @@ type RoundStatus = 'IN_PROGRESS' | 'WON' | 'LOST' | 'CASHED_OUT';
 interface Character {
   id: string;
   name: string;
-  level: number;
-  experience: number;
-  experienceToNextLevel: number;
-  stats: CharacterStats;
-  skills: CharacterSkill[];
-  unlockedPortals: PortalDifficulty[];
   inventory: InventoryItem[];
   activeModifiers: EventModifier[];
   createdAt: number;
   lastPlayedAt: number;
 }
 
-interface CharacterStats {
-  luck: number;
-  agility: number;
-  intuition: number;
-  magicAffinity: number;
-  dimensionalMastery: number;
+interface InventoryItem {
+  id: string;
+  name: string;
+  type: 'ARTIFACT' | 'CONSUMABLE' | 'KEY' | 'MATERIAL';
+  rarity: number;
+  effects: ItemEffect[];
+  quantity: number;
+}
+
+interface ItemEffect {
+  stat: 'RTP' | 'GOLD_BONUS';
+  value: number;
+  isPercentage: boolean;
 }
 
 interface Background {
@@ -574,8 +566,7 @@ interface Round {
   balanceBefore: number;
   balanceAfter: number;
   
-  // Character
-  totalExperienceGained: number;
+  // Character updates
   characterUpdates: CharacterUpdate[];
   
   // Meta
@@ -676,7 +667,7 @@ interface ActiveRoundResponse {
    - Button: "Rozpocznij grę" → `POST /api/session/create`
 
 2. **Główny ekran gry**
-   - Wyświetl: balance, level, XP
+   - Wyświetl: balance, nazwa postaci
    - Wybór portalu (EASY/MEDIUM/HARD)
    - Wybór zakładu
    - Button: "Wejdź do portalu" → `POST /api/round/start`
@@ -722,6 +713,10 @@ interface GameState {
   roundHistory: RoundSummary[];
   sessionStats: RoundHistory['stats'] | null;
 }
+
+// Uwaga: Gra nie ma systemu poziomów ani statystyk postaci.
+// Wszystkie portale są dostępne od początku.
+// RTP i szanse zależą tylko od wybranego portalu.
 ```
 
 ---

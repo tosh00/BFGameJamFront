@@ -311,14 +311,14 @@ export default class Terminal {
 
   private updateBalanceSection() {
     if (this.balanceText) {
-      this.balanceText.text = `${this.sections.balance} gold\nBet: 10 gold`;
+      this.balanceText.text = `${this.sections.balance} gold`;
     }
   }
 
   private updateRoundMoneySection() {
     if (this.roundMoneyText) {
       if (this.sections.currentRoundMoney > 0) {
-        this.roundMoneyText.text = `Accumulated:\n${this.sections.currentRoundMoney} gold\n[AT RISK]`;
+        this.roundMoneyText.text = `Accumulated:\n${this.sections.currentRoundMoney} gold`;
       } else {
         this.roundMoneyText.text = 'No active round\nSelect a portal!';
       }
@@ -339,7 +339,7 @@ export default class Terminal {
         this.portalDetailsText.text = 
           `World: ${p.worldName}\n` +
           `Chance: ${p.chance}\n` +
-          `Reward: ${p.multiplier}`;
+          `Reward: ${Math.round(10000/(parseInt(p.chance.replace('%', ''))))/100}x\n`;
       } else {
         // this.portalNameText.text = '';
         this.portalDetailsText.text = 'Click a portal\nto select';

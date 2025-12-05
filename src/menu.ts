@@ -77,44 +77,31 @@ export default class Menu {
       // this.scene.addChild(title);
     }
 
-    // Subtitle
-    const subtitle = new Text({
-      text: 'A Realm Traveller Adventure',
+    // Layout from bottom up with 30px spacing
+    const spacing = 30;
+    const bottomMargin = 50;
+    let currentY = screenHeight - bottomMargin;
+
+    // Status text (for loading/error messages) - bottom most
+    this.statusText = new Text({
+      text: '',
       style: {
         fontFamily: 'Arial',
-        fontSize: 24,
-        fill: 0xaaaaaa,
+        fontSize: 18,
+        fill: 0xffcc00,
       },
     });
-    subtitle.anchor.set(0.5);
-    subtitle.x = screenWidth / 2;
-    subtitle.y = screenHeight / 4 + 150;
-    this.scene.addChild(subtitle);
-
-    // Balance display
-    const state = gameState.getState();
-    const balanceText = new Text({
-      text: `Your Gold: ${state.balance}`,
-      style: {
-        fontFamily: 'Arial',
-        fontSize: 22,
-        fill: 0xffd700, // Gold color
-        fontWeight: 'bold',
-      },
-    });
-    balanceText.anchor.set(0.5);
-    balanceText.x = screenWidth / 2;
-    balanceText.y = screenHeight / 4 + 190;
-    this.scene.addChild(balanceText);
-
-    // Bet selection section
-    this.createBetSelector(screenWidth, screenHeight);
+    this.statusText.anchor.set(0.5, 1);
+    this.statusText.x = screenWidth / 2;
+    this.statusText.y = currentY;
+    this.scene.addChild(this.statusText);
+    currentY -= 20 + spacing; // status text height + spacing
 
     // Start button
     const buttonWidth = 200;
     const buttonHeight = 60;
     const buttonX = screenWidth / 2 - buttonWidth / 2;
-    const buttonY = screenHeight / 2 + 80;
+    const buttonY = currentY - buttonHeight;
 
     const button = new Graphics();
     button.roundRect(buttonX, buttonY, buttonWidth, buttonHeight, 12);
@@ -163,25 +150,45 @@ export default class Menu {
     buttonText.y = buttonY + buttonHeight / 2;
     this.scene.addChild(buttonText);
     this.buttonText = buttonText;
+    currentY = buttonY - spacing;
 
-    // Status text (for loading/error messages)
-    this.statusText = new Text({
-      text: '',
+    // Bet selection section
+    this.createBetSelector(screenWidth, currentY);
+    currentY -= 70 + spacing; // bet selector height + spacing
+
+    // Balance display
+    const state = gameState.getState();
+    const balanceText = new Text({
+      text: `Your Gold: ${state.balance}`,
       style: {
         fontFamily: 'Arial',
-        fontSize: 18,
-        fill: 0xffcc00,
+        fontSize: 22,
+        fill: 0xffd700, // Gold color
+        fontWeight: 'bold',
       },
     });
-    this.statusText.anchor.set(0.5);
-    this.statusText.x = screenWidth / 2;
-    this.statusText.y = buttonY + buttonHeight + 30;
-    this.scene.addChild(this.statusText);
+    balanceText.anchor.set(0.5, 1);
+    balanceText.x = screenWidth / 2;
+    balanceText.y = currentY;
+    this.scene.addChild(balanceText);
+    currentY -= 25 + spacing; // balance text height + spacing
+
+    // Subtitle
+    const subtitle = new Text({
+      text: 'A Realm Traveller Adventure',
+      style: {
+        fontFamily: 'Arial',
+        fontSize: 24,
+        fill: 0xaaaaaa,
+      },
+    });
+    subtitle.anchor.set(0.5, 1);
+    subtitle.x = screenWidth / 2;
+    subtitle.y = currentY;
+    this.scene.addChild(subtitle);
   }
 
-  private createBetSelector(screenWidth: number, screenHeight: number) {
-    const selectorY = screenHeight / 2;
-
+  private createBetSelector(screenWidth: number, selectorY: number) {
     // Label
     const label = new Text({
       text: 'Bet Amount:',
@@ -191,13 +198,13 @@ export default class Menu {
         fill: 0xcccccc,
       },
     });
-    label.anchor.set(0.5);
+    label.anchor.set(0.5, 1);
     label.x = screenWidth / 2;
     label.y = selectorY - 35;
     this.scene.addChild(label);
 
     // Minus button
-    const minusBtn = this.createArrowButton(screenWidth / 2 - 100, selectorY, '<', () => {
+    const minusBtn = this.createArrowButton(screenWidth / 2 - 100, selectorY - 20, '<', () => {
       if (this.selectedBetIndex > 0) {
         this.selectedBetIndex--;
         this.updateBetDisplay();
@@ -217,11 +224,11 @@ export default class Menu {
     });
     this.betAmountText.anchor.set(0.5);
     this.betAmountText.x = screenWidth / 2;
-    this.betAmountText.y = selectorY;
+    this.betAmountText.y = selectorY - 20;
     this.scene.addChild(this.betAmountText);
 
     // Plus button
-    const plusBtn = this.createArrowButton(screenWidth / 2 + 100, selectorY, '>', () => {
+    const plusBtn = this.createArrowButton(screenWidth / 2 + 100, selectorY - 20, '>', () => {
       if (this.selectedBetIndex < BET_OPTIONS.length - 1) {
         this.selectedBetIndex++;
         this.updateBetDisplay();
