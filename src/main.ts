@@ -6,6 +6,7 @@ import Portal from './portal';
 import Terminal from './terminal';
 import Menu from './menu';
 import DeathScreen from './deathScreen';
+import EventDisplay from './eventDisplay';
 import gameState from './gameState';
 import { PortalDifficulty } from './apiConnections/types';
 
@@ -122,6 +123,10 @@ let currentBetAmount = 10;
   app.stage.addChild(terminal.scene);
 
   // Death screen (Dark Souls style "YOU DIED")
+
+  // Event display (shows random events during gameplay)
+  const eventDisplay = new EventDisplay(app.screen.width, app.screen.height, backgroundBottomOffset);
+  app.stage.addChild(eventDisplay.scene);
 
   for (let i = 0; i < buttonPositions.length; i++) {
     const difficulty = portalDifficulties[i];
@@ -270,11 +275,14 @@ let currentBetAmount = 10;
       return;
     }
 
+    // Determine outcome for event animation
+    const eventOutcome = result.isWin ? 'good' : 'bad';
+
     // Start the jump animation
     characterScene.jump(app, backgroundBottomOffset, 100);
 
     // After jump animation - hide portals and change background at the same time
-    setTimeout(() => {
+    setTimeout(async () => {
       // Hide all portals instantly
       buttons.forEach((portal) => {
         portal.hide(0);
@@ -283,11 +291,39 @@ let currentBetAmount = 10;
       // Change main background
       background.texture = Texture.from(portalBackgroundUrl);
 
-      // Update terminal with result
-      updateTerminalWithResult(result);
+      // Shift character to the right to make room for event
+      await characterScene.shiftRight(app, 400);
 
-      // After a few seconds, reveal portals with new backgrounds
-      setTimeout(() => {
+      // Show event animation sequence
+      await eventDisplay.showEvent(
+        eventOutcome,
+        // onInitShown - event appeared
+        () => {
+          terminal.setLastEventResult('Encountering\nan event...');
+        },
+        // onOutcomeShown - result revealed
+        () => {
+          if (result.isWin) {
+            terminal.setLastEventResult('SUCCESS!\nYou survived!');
+          } else {
+            terminal.setLastEventResult('DEFEAT!\nYou fell...');
+          }
+        },
+        // onComplete - animation done
+        () => {
+          // Handle post-event logic
+        }
+      );
+
+      // Handle result after event animation
+      if (result.isWin) {
+        // Win: shift character back to center, then reveal portals
+        await characterScene.shiftToCenter(400);
+
+        // Update terminal with result
+        updateTerminalWithResult(result);
+
+        // Reveal portals with new backgrounds
         buttons.forEach((portal, index) => {
           const newBgUrl = getRandomBackground(portalDifficulties[index]);
           portal.setBackground(newBgUrl);
@@ -302,7 +338,10 @@ let currentBetAmount = 10;
         setTimeout(() => {
           portalsEnabled = true;
         }, buttons.length * 150 + 500);
-      }, 2000); // Wait 2 seconds before revealing portals
+      } else {
+        // Loss: show death screen (character stays shifted, will reset on menu)
+        updateTerminalWithResult(result);
+      }
     }, 1000); // Wait for jump animation
   }
 
@@ -370,6 +409,9 @@ let currentBetAmount = 10;
 
     // Reset background to village
     background.texture = Texture.from(initialBackground);
+
+    // Reset character position to center
+    characterScene.resetPosition();
 
     // Update terminal
     terminal.setBalance(state.balance);

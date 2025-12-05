@@ -13,7 +13,7 @@ export default class Menu {
   private buttonText: Text | null = null;
   private screenWidth: number;
   private screenHeight: number;
-  
+
   // Bet selection
   private selectedBetIndex: number = 1; // Default to 10
   private betAmountText: Text | null = null;
@@ -41,6 +41,7 @@ export default class Menu {
 
     // Logo image instead of title text
     const logoTexture = Assets.get(asset('logo'));
+    console.log(asset('logo'));
     if (logoTexture) {
       const logo = Sprite.from(logoTexture);
       logo.anchor.set(0.5);
@@ -56,24 +57,24 @@ export default class Menu {
       this.scene.addChild(logo);
     } else {
       // Fallback to text if logo not loaded
-      const title = new Text({
-        text: 'Echoes of Realms',
-        style: {
-          fontFamily: 'Arial',
-          fontSize: 32,
-          fill: 0xffffff,
-          fontWeight: 'bold',
-          dropShadow: {
-            color: 0x6633ff,
-            blur: 10,
-            distance: 4,
-          },
-        },
-      });
-      title.anchor.set(0.5);
-      title.x = screenWidth / 2;
-      title.y = screenHeight / 2;
-      this.scene.addChild(title);
+      // const title = new Text({
+      //   text: 'Echoes of Realms',
+      //   style: {
+      //     fontFamily: 'Arial',
+      //     fontSize: 32,
+      //     fill: 0xffffff,
+      //     fontWeight: 'bold',
+      //     dropShadow: {
+      //       color: 0x6633ff,
+      //       blur: 10,
+      //       distance: 4,
+      //     },
+      //   },
+      // });
+      // title.anchor.set(0.5);
+      // title.x = screenWidth / 2;
+      // title.y = screenHeight / 2;
+      // this.scene.addChild(title);
     }
 
     // Subtitle
@@ -180,7 +181,7 @@ export default class Menu {
 
   private createBetSelector(screenWidth: number, screenHeight: number) {
     const selectorY = screenHeight / 2;
-    
+
     // Label
     const label = new Text({
       text: 'Bet Amount:',
@@ -232,9 +233,9 @@ export default class Menu {
   private createArrowButton(x: number, y: number, text: string, onClick: () => void): Container {
     const container = new Container();
     const size = 40;
-    
+
     const bg = new Graphics();
-    bg.roundRect(-size/2, -size/2, size, size, 8);
+    bg.roundRect(-size / 2, -size / 2, size, size, 8);
     bg.fill({ color: 0x444444 });
     container.addChild(bg);
 
@@ -256,25 +257,25 @@ export default class Menu {
 
     container.on('pointerover', () => {
       bg.clear();
-      bg.roundRect(-size/2, -size/2, size, size, 8);
+      bg.roundRect(-size / 2, -size / 2, size, size, 8);
       bg.fill({ color: 0x666666 });
     });
 
     container.on('pointerout', () => {
       bg.clear();
-      bg.roundRect(-size/2, -size/2, size, size, 8);
+      bg.roundRect(-size / 2, -size / 2, size, size, 8);
       bg.fill({ color: 0x444444 });
     });
 
     container.on('pointerdown', () => {
       bg.clear();
-      bg.roundRect(-size/2, -size/2, size, size, 8);
+      bg.roundRect(-size / 2, -size / 2, size, size, 8);
       bg.fill({ color: 0x333333 });
     });
 
     container.on('pointerup', () => {
       bg.clear();
-      bg.roundRect(-size/2, -size/2, size, size, 8);
+      bg.roundRect(-size / 2, -size / 2, size, size, 8);
       bg.fill({ color: 0x666666 });
       onClick();
     });
@@ -297,7 +298,7 @@ export default class Menu {
 
     // Session is already created on app init - just start the game with selected bet
     const state = gameState.getState();
-    
+
     if (!state.sessionId) {
       this.statusText.text = 'No session found. Please refresh.';
       this.statusText.style.fill = 0xff6666;
