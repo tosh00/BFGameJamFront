@@ -21,7 +21,11 @@ import {
   PortalResponse,
   PortalsResponse,
   PortalStatsResponse,
-  RTPCalculationResponse
+  RTPCalculationResponse,
+  RoundStartResponse,
+  RoundContinueResponse,
+  RoundCashoutResponse,
+  ActiveRoundResponse
 } from './types';
 
 type ApiResponse<T> = T | ApiError;
@@ -218,6 +222,53 @@ export class EchoesApiClient {
    */
   async healthCheck(): Promise<ApiResponse<HealthResponse>> {
     return this.request<HealthResponse>('/health');
+  }
+
+  // ==================== ROUNDS (Multi-Event) ====================
+
+  /**
+   * Rozpoczyna nową rundę (pierwszy event)
+   */
+  async startRound(
+    sessionId: string,
+    portalDifficulty: PortalDifficulty,
+    betAmount: number
+  ): Promise<ApiResponse<RoundStartResponse>> {
+    return this.request<RoundStartResponse>('/round/start', {
+      method: 'POST',
+      body: JSON.stringify({
+        sessionId,
+        portalDifficulty,
+        betAmount
+      })
+    });
+  }
+
+  /**
+   * Kontynuuje rundę (ryzykuj dalej)
+   */
+  async continueRound(sessionId: string): Promise<ApiResponse<RoundContinueResponse>> {
+    return this.request<RoundContinueResponse>('/round/continue', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId })
+    });
+  }
+
+  /**
+   * Wypłaca wygrane (zakończ rundę)
+   */
+  async cashoutRound(sessionId: string): Promise<ApiResponse<RoundCashoutResponse>> {
+    return this.request<RoundCashoutResponse>('/round/cashout', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId })
+    });
+  }
+
+  /**
+   * Sprawdza czy gracz ma aktywną rundę
+   */
+  async getActiveRound(sessionId: string): Promise<ApiResponse<ActiveRoundResponse>> {
+    return this.request<ActiveRoundResponse>(`/round/active/${sessionId}`);
   }
 }
 

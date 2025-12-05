@@ -1,10 +1,12 @@
 import { Assets, Container, FederatedPointerEvent, Graphics, Sprite, Texture } from 'pixi.js';
 import { asset } from './utils/utils';
+import { Difficulty } from './utils/loadAssets';
 
 export default class Portal {
   position: { x: number; y: number };
   scale: number = 0.8;
-  worldId: string;
+  difficulty: Difficulty;
+  backgroundUrl: string;
   scene: Container;
   elements: Sprite[] = [];
   pointerOver = false;
@@ -19,7 +21,8 @@ export default class Portal {
 
   constructor(
     position: { x: number; y: number },
-    worldId: string,
+    difficulty: Difficulty,
+    backgroundUrl: string,
     onButtonDown?: (event: FederatedPointerEvent) => void,
     onButtonUp?: (event: FederatedPointerEvent) => void,
     onButtonOver?: (event: FederatedPointerEvent) => void,
@@ -29,23 +32,29 @@ export default class Portal {
       isRenderGroup: true,
     });
     this.position = position;
-    this.worldId = worldId;
+    this.difficulty = difficulty;
+    this.backgroundUrl = backgroundUrl;
     this.callbacks.onButtonOver = onButtonOver || (() => {});
     this.callbacks.onButtonOut = onButtonOut || (() => {});
     this.callbacks.onButtonDown = onButtonDown || (() => {});
     this.callbacks.onButtonUp = onButtonUp || (() => {});
     this.portalSprite = new Sprite(Texture.from(asset('portal_big')));
-    this.backgroundSprite = new Sprite(Texture.from(asset(this.worldId)));
+    this.backgroundSprite = new Sprite(Texture.from(this.backgroundUrl));
   }
 
-  async loadAssets() {
-    await Assets.load([
-      asset('peacfulJungle_big'),
-      asset('stoneScene'),
-      asset('gearfallRuins'),
-      asset('calmMedow'),
-      asset('volcano_big'),
-    ]);
+  /**
+   * Get the current background URL of this portal
+   */
+  getBackgroundUrl(): string {
+    return this.backgroundUrl;
+  }
+
+  /**
+   * Update the portal's background with a new URL
+   */
+  setBackground(newUrl: string) {
+    this.backgroundUrl = newUrl;
+    this.backgroundSprite.texture = Texture.from(newUrl);
   }
 
   render(app: any) {
@@ -119,14 +128,95 @@ export default class Portal {
     let tick = 0;
     const targetHeight = app.screen.height;
     app.ticker.add(() => {
-
       if (this.scene) {
-        if(tick < 100) {
+        if (tick < 100) {
           this.portalSprite.height = targetHeight * (tick / 100);
         }
       }
       // this.elements[0].x = 0.05 * Math.sin(tick / 20);
       tick++;
     });
+  }
+
+  /**
+   * Hide the portal by scaling it down to 0
+   */
+  hide(duration: number = 0): Promise<void> {
+    return new Promise((resolve) => {
+      const startScale = this.scene.scale.x;
+      const startTime = performance.now();
+
+      const animate = () => {
+        const elapsed = performance.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // Ease out
+        const easeProgress = 1 - Math.pow(1 - progress, 3);
+        const newScale = startScale * (1 - easeProgress);
+
+        this.scene.scale.set(newScale);
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          this.scene.visible = false;
+          resolve();
+        }
+      };
+
+      requestAnimationFrame(animate);
+    });
+  }
+
+  /**
+   * Show the portal by scaling it up from 0
+   */
+  reveal(duration: number = 500): Promise<void> {
+    return new Promise((resolve) => {
+      this.scene.scale.set(0);
+      this.scene.visible = true;
+
+      const targetScale = 1;
+      const startTime = performance.now();
+
+      const animate = () => {
+        const elapsed = performance.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // Ease out with bounce effect
+        const easeProgress = 1 - Math.pow(1 - progress, 3);
+        const overshoot = progress < 0.8 ? 0 : Math.sin((progress - 0.8) * Math.PI * 5) * 0.05 * (1 - progress);
+        const newScale = targetScale * easeProgress + overshoot;
+
+        this.scene.scale.set(newScale);
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          this.scene.scale.set(targetScale);
+          resolve();
+        }
+      };
+
+      requestAnimationFrame(animate);
+    });
+  }
+
+  /**
+   * Hide, update background, then reveal with new background
+   */
+  async transitionToNewBackground(newUrl: string, hideDelay: number = 300): Promise<void> {
+
+    await new Promise((resolve) => setTimeout(resolve, hideDelay));
+    await this.hide(0);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // Wait a bit before revealing
+
+    // Update background while hidden
+    this.setBackground(newUrl);
+
+    // Reveal with new background
+    await this.reveal(500);
   }
 }

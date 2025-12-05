@@ -280,3 +280,79 @@ export interface ApiError {
   success: false;
   error: string;
 }
+
+// ==================== ROUND TYPES ====================
+
+export type RoundStatus = 'IN_PROGRESS' | 'WON' | 'LOST' | 'CASHED_OUT';
+
+export interface RoundEvent {
+  eventIndex: number;
+  event: GameEvent;
+  background: BackgroundSelection;
+  isWin: boolean;
+  reward: number;
+  multiplierGained: number;
+  timestamp: number;
+}
+
+export interface Round {
+  roundId: string;
+  sessionId: string;
+  roundNumber: number;
+  status: RoundStatus;
+  portalDifficulty: PortalDifficulty;
+  initialBet: number;
+  events: RoundEvent[];
+  currentEventIndex: number;
+  maxEvents: number;
+  accumulatedWinnings: number;
+  currentMultiplier: number;
+  canContinue: boolean;
+  canCashOut: boolean;
+  nextEventDifficulty?: number;
+  potentialLoss: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  totalExperienceGained: number;
+  baseRtp: number;
+  startedAt: number;
+  completedAt?: number;
+}
+
+export interface RoundStartResponse {
+  success: boolean;
+  round: Round;
+  lastEvent: RoundEvent;
+  message: string;
+  session: {
+    balance: number;
+    totalRounds: number;
+  };
+}
+
+export interface RoundContinueResponse {
+  success: boolean;
+  round: Round;
+  lastEvent: RoundEvent;
+  message: string;
+  session: {
+    balance: number;
+    totalRounds: number;
+  };
+}
+
+export interface RoundCashoutResponse {
+  success: boolean;
+  round: Round;
+  message: string;
+  session: {
+    balance: number;
+    totalRounds: number;
+  };
+}
+
+export interface ActiveRoundResponse {
+  success: boolean;
+  hasActiveRound: boolean;
+  round: Round | null;
+}
