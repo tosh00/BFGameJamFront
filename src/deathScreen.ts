@@ -40,8 +40,10 @@ export default class DeathScreen {
 
   /**
    * Show the death screen with Dark Souls style animation
+   * @param onComplete - called when animation is done (menu should already be visible behind)
+   * @param onReadyForMenu - called when it's time to show menu (before fade out starts)
    */
-  show(onComplete?: () => void): Promise<void> {
+  show(onComplete?: () => void, onReadyForMenu?: () => void): Promise<void> {
     this.onComplete = onComplete || null;
     this.scene.visible = true;
 
@@ -51,8 +53,10 @@ export default class DeathScreen {
       const textFadeInStart = 1000; // Text starts appearing
       const textFadeInDuration = 1500; // Text fade in
       const holdDuration = 2500; // Hold on screen
-      const fadeOutDuration = 1000; // Fade out
+      const fadeOutDuration = 1500; // Fade out (longer for smooth reveal)
       const totalDuration = fadeInDuration + holdDuration + fadeOutDuration;
+      
+      let menuTriggered = false;
 
       const animate = () => {
         const elapsed = performance.now() - startTime;
@@ -83,12 +87,21 @@ export default class DeathScreen {
           this.deathText.scale.set(1);
         }
 
-        // Phase 3: Hold and then fade out
+        // Trigger menu creation right before fade out starts
+        if (!menuTriggered && elapsed > fadeInDuration + holdDuration - 100) {
+          menuTriggered = true;
+          if (onReadyForMenu) {
+            onReadyForMenu();
+          }
+        }
+
+        // Phase 3: Hold and then fade out (reveal menu underneath)
         if (elapsed > fadeInDuration + holdDuration) {
           const fadeOutProgress = (elapsed - fadeInDuration - holdDuration) / fadeOutDuration;
-          const fadeOut = 1 - fadeOutProgress;
-          this.blackOverlay.alpha = Math.max(0, fadeOut);
-          this.deathText.alpha = Math.max(0, fadeOut);
+          // Ease out for smooth reveal
+          const easeOut = 1 - Math.pow(fadeOutProgress, 2);
+          this.blackOverlay.alpha = Math.max(0, easeOut);
+          this.deathText.alpha = Math.max(0, easeOut);
         }
 
         // Continue or complete
