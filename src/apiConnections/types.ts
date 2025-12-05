@@ -61,6 +61,22 @@ export interface Portal {
   unlockLevel: number;
 }
 
+// Round difficulty config (from /api/round/config/:difficulty)
+export interface RoundDifficultyConfig {
+  baseWinChance: number;
+  difficultyIncreasePerEvent: number;
+  minWinChance: number;
+  multiplierIncreasePerEvent: number;
+  maxEvents: number;
+  minEventsForCashOut: number;
+}
+
+export interface RoundConfigResponse {
+  success: boolean;
+  difficulty: PortalDifficulty;
+  config: RoundDifficultyConfig;
+}
+
 // Background
 export interface Background {
   id: string;

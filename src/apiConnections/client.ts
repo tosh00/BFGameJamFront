@@ -25,7 +25,8 @@ import {
   RoundStartResponse,
   RoundContinueResponse,
   RoundCashoutResponse,
-  ActiveRoundResponse
+  ActiveRoundResponse,
+  RoundConfigResponse
 } from './types';
 
 type ApiResponse<T> = T | ApiError;
@@ -269,6 +270,13 @@ export class EchoesApiClient {
    */
   async getActiveRound(sessionId: string): Promise<ApiResponse<ActiveRoundResponse>> {
     return this.request<ActiveRoundResponse>(`/round/active/${sessionId}`);
+  }
+
+  /**
+   * Pobiera konfigurację trudności dla portalu
+   */
+  async getRoundConfig(difficulty: PortalDifficulty): Promise<ApiResponse<RoundConfigResponse>> {
+    return this.request<RoundConfigResponse>(`/round/config/${difficulty}`);
   }
 }
 

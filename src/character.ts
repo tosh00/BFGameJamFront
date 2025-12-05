@@ -1,3 +1,4 @@
+// filepath: /home/bartosz_palewicz/Projects/my-sh/BFGameJamFront/src/character.ts
 import { Assets, Container, Sprite, Texture } from 'pixi.js';
 import { asset } from './utils/utils';
 
@@ -6,6 +7,8 @@ export default class Character {
   character: Sprite;
   platform: Sprite;
   scene: Container;
+  private centerX: number = 0;
+  private isShifted: boolean = false;
 
   constructor() {
     this.scene = new Container({
@@ -13,9 +16,7 @@ export default class Character {
     });
     this.character = new Sprite(Texture.from(asset('Cindy')));
     this.platform = new Sprite(Texture.from(asset('platform')));
-
   }
-
 
   async loadAssets() {
     await Assets.load([asset('platform'), asset('Cindy'), asset('Cindy2'), asset('Cindy3')]);
@@ -36,6 +37,9 @@ export default class Character {
     this.character.y = app.screen.height - backgroundBottomOffset - 80;
     this.character.scale.set(2);
 
+    // Store center position for reset
+    this.centerX = this.character.x;
+
     this.character.eventMode = 'static';
     this.character.cursor = 'pointer';
 
@@ -47,16 +51,6 @@ export default class Character {
   }
 
   jump(app: any, backgroundBottomOffset: number, time: number) {
-    // const amplitude = 50;
-    // this.character.texture = Texture.from(asset('Cindy2'));
-    // setTimeout(() => {
-    //   this.character.y =  app.screen.height - backgroundBottomOffset - 80 - amplitude;
-    //   this.character.texture = Texture.from(asset('Cindy3'));
-    // }, time / 2);
-    // setTimeout(() => {
-    //   this.character.y =  app.screen.height - backgroundBottomOffset - 80;
-    //   this.character.texture = Texture.from(asset('Cindy'));
-    // }, time);
     let tick = 0;
     const amplitude = 150;
     const jumpDuration = time;
@@ -83,6 +77,86 @@ export default class Character {
       }
       tick++;
     });
-  };
+  }
 
+  /**
+   * Shift character to the right side of the screen
+   */
+  shiftRight(app: any, duration: number = 500): Promise<void> {
+    if (this.isShifted) return Promise.resolve();
+    
+    const targetX = app.screen.width * 0.75;
+    const platformTargetX = app.screen.width * 0.75 - 10;
+    
+    return new Promise((resolve) => {
+      const startX = this.character.x;
+      const platformStartX = this.platform.x;
+      const startTime = performance.now();
+
+      const animate = () => {
+        const elapsed = performance.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Ease out for smooth movement
+        const easeProgress = 1 - Math.pow(1 - progress, 3);
+        
+        this.character.x = startX + (targetX - startX) * easeProgress;
+        this.platform.x = platformStartX + (platformTargetX - platformStartX) * easeProgress;
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          this.isShifted = true;
+          resolve();
+        }
+      };
+
+      requestAnimationFrame(animate);
+    });
+  }
+
+  /**
+   * Shift character back to center
+   */
+  shiftToCenter(duration: number = 500): Promise<void> {
+    if (!this.isShifted) return Promise.resolve();
+    
+    const targetX = this.centerX;
+    const platformTargetX = this.centerX - 10;
+    
+    return new Promise((resolve) => {
+      const startX = this.character.x;
+      const platformStartX = this.platform.x;
+      const startTime = performance.now();
+
+      const animate = () => {
+        const elapsed = performance.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Ease out for smooth movement
+        const easeProgress = 1 - Math.pow(1 - progress, 3);
+        
+        this.character.x = startX + (targetX - startX) * easeProgress;
+        this.platform.x = platformStartX + (platformTargetX - platformStartX) * easeProgress;
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          this.isShifted = false;
+          resolve();
+        }
+      };
+
+      requestAnimationFrame(animate);
+    });
+  }
+
+  /**
+   * Reset character position to center instantly
+   */
+  resetPosition() {
+    this.character.x = this.centerX;
+    this.platform.x = this.centerX - 10;
+    this.isShifted = false;
+  }
 }
