@@ -29,11 +29,19 @@ let currentBetAmount = 10;
     'https://pixijs.com/assets/button_down.png',
     asset('portal_big'),
     asset('backgrounds/village'),
+    asset('backgrounds/menu'),
     asset('platform'),
     asset('Cindy'),
     asset('Cindy2'),
     asset('Cindy3'),
   ]);
+  
+  // Try to load optional assets (logo) - don't fail if missing
+  try {
+    await Assets.load(asset('logo'));
+  } catch (e) {
+    console.warn('Logo not found, using text fallback');
+  }
 
   // Load all background assets by difficulty
   await loadAllBackgrounds();
@@ -57,15 +65,25 @@ let currentBetAmount = 10;
     hard: PortalDifficulty.HARD,
   };
 
-  // Portal info - chances, multipliers, world names
-  const portalInfo: Record<
-    Difficulty,
-    { name: string; worldName: string; chance: string; multiplier: string; color: string }
-  > = {
-    easy: { name: 'Easy', worldName: 'Peaceful Meadows', chance: '80%', multiplier: '1.2x', color: '' },
-    medium: { name: 'Medium', worldName: 'Mystic Forest', chance: '50%', multiplier: '2x', color: '' },
-    hard: { name: 'Hard', worldName: "Dragon's Lair", chance: '25%', multiplier: '4x', color: '' },
-  };
+  /**
+   * Get portal info from gameState (fetched from API)
+   */
+  function getPortalInfo(difficulty: Difficulty): { name: string; worldName: string; chance: string; multiplier: string; color: string } {
+    const apiDifficulty = difficultyToApi[difficulty];
+    const info = gameState.getPortalInfo(apiDifficulty);
+    
+    if (info) {
+      return { name: info.name, worldName: info.worldName, chance: info.chance, multiplier: info.multiplier, color: '' };
+    }
+    
+    // Fallback defaults
+    const defaults: Record<Difficulty, { name: string; worldName: string; chance: string; multiplier: string; color: string }> = {
+      easy: { name: 'Easy', worldName: 'Peaceful Meadows', chance: '65%', multiplier: '0.5x', color: '' },
+      medium: { name: 'Medium', worldName: 'Mystic Forest', chance: '55%', multiplier: '1.0x', color: '' },
+      hard: { name: 'Hard', worldName: "Dragon's Lair", chance: '45%', multiplier: '2.0x', color: '' },
+    };
+    return defaults[difficulty];
+  }
 
   // Create a background with a random easy background initially
   const initialBackground =
@@ -166,7 +184,7 @@ let currentBetAmount = 10;
     selectedPortalIndex = portalIndex;
     const clickedPortal = buttons[portalIndex];
     const difficulty = clickedPortal.difficulty;
-    const info = portalInfo[difficulty];
+    const info = getPortalInfo(difficulty);
 
     console.log('Portal selected! Difficulty:', difficulty);
 
@@ -192,7 +210,7 @@ let currentBetAmount = 10;
 
     const hoveredPortal = buttons[portalIndex];
     const difficulty = hoveredPortal.difficulty;
-    const info = portalInfo[difficulty];
+    const info = getPortalInfo(difficulty);
 
     console.log(`Hovering: ${info.name} - ${info.chance} chance, ${info.multiplier} reward`);
   }
@@ -211,7 +229,7 @@ let currentBetAmount = 10;
     const difficulty = clickedPortal.difficulty;
     const apiDifficulty = difficultyToApi[difficulty];
     const portalBackgroundUrl = clickedPortal.getBackgroundUrl();
-    const info = portalInfo[difficulty];
+    const info = getPortalInfo(difficulty);
 
     console.log('GO! Entering portal. Difficulty:', difficulty);
 
@@ -331,8 +349,7 @@ let currentBetAmount = 10;
       deathScreen.show(
         // onComplete - animation fully done
         () => {
-          // Re-enable portals after menu is shown
-          portalsEnabled = true;
+          // Animation complete, portals can be enabled after menu interaction
         },
         // onReadyForMenu - called right before fade out, set up menu underneath
         () => {

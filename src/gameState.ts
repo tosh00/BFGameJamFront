@@ -3,6 +3,17 @@ import { PortalDifficulty, Character, ApiError, Round, RoundEvent, RoundStatus }
 
 const SESSION_STORAGE_KEY = 'echoes_session_id';
 
+// Portal info combining Portal data and RoundDifficultyConfig
+export interface PortalInfo {
+  name: string;
+  worldName: string;
+  chance: string;      // baseWinChance as percentage string
+  multiplier: string;  // multiplierIncreasePerEvent as string
+  baseWinChance: number;
+  multiplierPerEvent: number;
+  maxEvents: number;
+}
+
 export interface GameStateData {
   sessionId: string | null;
   balance: number;
@@ -14,6 +25,9 @@ export interface GameStateData {
   lastEvent: RoundEvent | null;
   canContinue: boolean;
   canCashOut: boolean;
+  
+  // Portal configs (fetched from API)
+  portalConfigs: Record<PortalDifficulty, PortalInfo> | null;
 }
 
 type GameStateListener = (state: GameStateData) => void;
@@ -28,6 +42,7 @@ export class GameState {
     lastEvent: null,
     canContinue: false,
     canCashOut: false,
+    portalConfigs: null,
   };
 
   private listeners: GameStateListener[] = [];
@@ -122,6 +137,9 @@ export class GameState {
         // Check for any active round
         await this.checkActiveRound();
         
+        // Load portal configs
+        await this.loadPortalConfigs();
+        
         return true;
       } else {
         console.log('⚠️ Stored session invalid or expired, creating new one...');
@@ -159,11 +177,77 @@ export class GameState {
       });
       console.log('✅ Session created:', response.sessionId);
       console.log('💰 Starting balance:', response.balance);
+      
+      // Load portal configs
+      await this.loadPortalConfigs();
+      
       return true;
     }
 
     this.update({ isLoading: false });
     return false;
+  }
+
+  /**
+   * Load portal configurations from API
+   */
+  async loadPortalConfigs(): Promise<boolean> {
+    const difficulties = [PortalDifficulty.EASY, PortalDifficulty.MEDIUM, PortalDifficulty.HARD];
+    const configs: Record<PortalDifficulty, PortalInfo> = {} as Record<PortalDifficulty, PortalInfo>;
+    
+    const worldNames: Record<PortalDifficulty, string> = {
+      [PortalDifficulty.EASY]: 'Peaceful Meadows',
+      [PortalDifficulty.MEDIUM]: 'Mystic Forest',
+      [PortalDifficulty.HARD]: "Dragon's Lair",
+    };
+
+    for (const difficulty of difficulties) {
+      try {
+        const configResponse = await api.getRoundConfig(difficulty);
+        
+        if (this.isApiError(configResponse) || !configResponse.success) {
+          console.error(`❌ Failed to load config for ${difficulty}`);
+          continue;
+        }
+
+        const config = configResponse.config;
+        configs[difficulty] = {
+          name: difficulty.charAt(0) + difficulty.slice(1).toLowerCase(),
+          worldName: worldNames[difficulty],
+          chance: `${config.baseWinChance}%`,
+          multiplier: `${config.multiplierIncreasePerEvent}x`,
+          baseWinChance: config.baseWinChance,
+          multiplierPerEvent: config.multiplierIncreasePerEvent,
+          maxEvents: config.maxEvents,
+        };
+        console.log(`✅ Loaded config for ${difficulty}:`, configs[difficulty]);
+      } catch (e) {
+        console.error(`❌ Error loading config for ${difficulty}:`, e);
+      }
+    }
+
+    if (Object.keys(configs).length === 3) {
+      this.update({ portalConfigs: configs });
+      return true;
+    }
+
+    // Fallback to defaults
+    console.warn('⚠️ Using fallback portal configs');
+    this.update({
+      portalConfigs: {
+        [PortalDifficulty.EASY]: { name: 'Easy', worldName: 'Peaceful Meadows', chance: '65%', multiplier: '0.5x', baseWinChance: 65, multiplierPerEvent: 0.5, maxEvents: 7 },
+        [PortalDifficulty.MEDIUM]: { name: 'Medium', worldName: 'Mystic Forest', chance: '55%', multiplier: '1.0x', baseWinChance: 55, multiplierPerEvent: 1.0, maxEvents: 6 },
+        [PortalDifficulty.HARD]: { name: 'Hard', worldName: "Dragon's Lair", chance: '45%', multiplier: '2.0x', baseWinChance: 45, multiplierPerEvent: 2.0, maxEvents: 5 },
+      },
+    });
+    return true;
+  }
+
+  /**
+   * Get portal info for a specific difficulty
+   */
+  getPortalInfo(difficulty: PortalDifficulty): PortalInfo | null {
+    return this.state.portalConfigs?.[difficulty] || null;
   }
 
   /**

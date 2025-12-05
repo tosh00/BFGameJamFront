@@ -1,5 +1,6 @@
-import { Container, Graphics, Text } from 'pixi.js';
+import { Container, Graphics, Text, Sprite, Assets } from 'pixi.js';
 import gameState from './gameState';
+import { asset } from './utils/utils';
 
 // Available bet amounts
 const BET_OPTIONS = [5, 10, 25, 50, 100];
@@ -23,31 +24,57 @@ export default class Menu {
     this.screenHeight = screenHeight;
     this.scene = new Container();
 
-    // Dark overlay background
-    const overlay = new Graphics();
-    overlay.rect(0, 0, screenWidth, screenHeight);
-    overlay.fill({ color: 0x000000, alpha: 0.85 });
-    this.scene.addChild(overlay);
+    // Menu background image
+    const menuBgTexture = Assets.get(asset('backgrounds/menu'));
+    if (menuBgTexture) {
+      const menuBackground = Sprite.from(menuBgTexture);
+      menuBackground.width = screenWidth;
+      menuBackground.height = screenHeight;
+      this.scene.addChild(menuBackground);
+    } else {
+      // Fallback to dark overlay if texture not loaded
+      const overlay = new Graphics();
+      overlay.rect(0, 0, screenWidth, screenHeight);
+      overlay.fill({ color: 0x000000, alpha: 0.85 });
+      this.scene.addChild(overlay);
+    }
 
-    // Title text
-    const title = new Text({
-      text: 'Echoes of Realms',
-      style: {
-        fontFamily: 'Arial',
-        fontSize: 32,
-        fill: 0xffffff,
-        fontWeight: 'bold',
-        dropShadow: {
-          color: 0x6633ff,
-          blur: 10,
-          distance: 4,
+    // Logo image instead of title text
+    const logoTexture = Assets.get(asset('logo'));
+    if (logoTexture) {
+      const logo = Sprite.from(logoTexture);
+      logo.anchor.set(0.5);
+      logo.x = screenWidth / 2;
+      logo.y = screenHeight / 4;
+      // Scale logo to reasonable size (adjust as needed)
+      const maxLogoWidth = screenWidth * 0.6;
+      const maxLogoHeight = screenHeight * 0.25;
+      const scaleX = maxLogoWidth / logo.width;
+      const scaleY = maxLogoHeight / logo.height;
+      const scale = Math.min(scaleX, scaleY, 1); // Don't scale up, only down
+      logo.scale.set(scale);
+      this.scene.addChild(logo);
+    } else {
+      // Fallback to text if logo not loaded
+      const title = new Text({
+        text: 'Echoes of Realms',
+        style: {
+          fontFamily: 'Arial',
+          fontSize: 32,
+          fill: 0xffffff,
+          fontWeight: 'bold',
+          dropShadow: {
+            color: 0x6633ff,
+            blur: 10,
+            distance: 4,
+          },
         },
-      },
-    });
-    title.anchor.set(0.5);
-    title.x = screenWidth / 2;
-    title.y = screenHeight / 4;
-    this.scene.addChild(title);
+      });
+      title.anchor.set(0.5);
+      title.x = screenWidth / 2;
+      title.y = screenHeight / 2;
+      this.scene.addChild(title);
+    }
 
     // Subtitle
     const subtitle = new Text({
@@ -60,7 +87,7 @@ export default class Menu {
     });
     subtitle.anchor.set(0.5);
     subtitle.x = screenWidth / 2;
-    subtitle.y = screenHeight / 4 + 50;
+    subtitle.y = screenHeight / 4 + 150;
     this.scene.addChild(subtitle);
 
     // Balance display
@@ -76,7 +103,7 @@ export default class Menu {
     });
     balanceText.anchor.set(0.5);
     balanceText.x = screenWidth / 2;
-    balanceText.y = screenHeight / 4 + 90;
+    balanceText.y = screenHeight / 4 + 190;
     this.scene.addChild(balanceText);
 
     // Bet selection section
